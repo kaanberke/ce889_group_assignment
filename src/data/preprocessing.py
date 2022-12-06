@@ -31,7 +31,6 @@ class DataProcessor:
                   store_data_path: str,
                   verbose: bool = False,
                   report_output_path: str = None) -> None:
-
         """
         Read raw data into DataProcessor.
         :param train_data_path: Path to train data.
@@ -41,10 +40,15 @@ class DataProcessor:
         :param report_output_path: Path to output report to.
         """
 
-        self.logger.info(f"Reading data from {train_data_path} , {test_data_path} and {store_data_path}.")
+        self.logger.info(
+            f"Reading data from {train_data_path} , {test_data_path} and {store_data_path}."
+        )
 
         for data_path in [train_data_path, test_data_path, store_data_path]:
-            self.path_checker(data_path, mkdir=False, extension=".csv", is_file=True)
+            self.path_checker(data_path,
+                              mkdir=False,
+                              extension=".csv",
+                              is_file=True)
 
         try:
             self.train_data = pd.read_csv(train_data_path, low_memory=False)
@@ -60,7 +64,8 @@ class DataProcessor:
                 print(self.train_data.head())
                 print("=" * term_size.columns)
 
-                self.logger.info("Dataframe shape: {}".format(self.train_data.shape))
+                self.logger.info("Dataframe shape: {}".format(
+                    self.train_data.shape))
                 print("=" * term_size.columns)
 
                 self.logger.info("Dataframe columns:")
@@ -86,7 +91,9 @@ class DataProcessor:
                 self.logger.info("Dataframe unique values:")
                 print(self.train_data.nunique())
                 for column in self.train_data:
-                    print(f"{column} column unique values: {self.train_data[column].unique()}")
+                    print(
+                        f"{column} column unique values: {self.train_data[column].unique()}"
+                    )
                 print("=" * term_size.columns)
 
                 self.logger.info("Dataframe value counts:")
@@ -133,30 +140,29 @@ class DataProcessor:
 
         # Column names of store data that contain null values.
         na_cols = [
-            "Promo2SinceWeek",
-            "Promo2SinceYear",
-            "CompetitionOpenSinceYear",
+            "Promo2SinceWeek", "Promo2SinceYear", "CompetitionOpenSinceYear",
             "CompetitionOpenSinceMonth"
         ]
 
         # Replaces null values with 0.
         for na_col in na_cols:
-            self.store_data[na_col] = self.store_data[na_col].fillna(self.store_data[na_col].mean()).astype(int)
+            self.store_data[na_col] = self.store_data[na_col].fillna(
+                self.store_data[na_col].mean()).astype(int)
 
         # Replaces null values in CompetitionDistance column with mean of column.
-        self.store_data["CompetitionDistance"].fillna(self.store_data["CompetitionDistance"].mean(), inplace=True)
+        self.store_data["CompetitionDistance"].fillna(
+            self.store_data["CompetitionDistance"].mean(), inplace=True)
 
         # CompetitionOpenSinceYear and CompetitionOpenSinceMonth must be renamed to year and month in order to be
         # converted to datetime.
-        self.store_data.rename(
-            columns={
-                "CompetitionOpenSinceYear": "YEAR",
-                "CompetitionOpenSinceMonth": "MONTH"
-            },
-            inplace=True
-        )
+        self.store_data.rename(columns={
+            "CompetitionOpenSinceYear": "YEAR",
+            "CompetitionOpenSinceMonth": "MONTH"
+        },
+                               inplace=True)
         # Converts CompetitionOpenSinceYear and CompetitionOpenSinceMonth to datetime.
-        self.store_data["CompetitionOpenSinceDate"] = pd.to_datetime(self.store_data[["YEAR", "MONTH"]].assign(DAY=1))
+        self.store_data["CompetitionOpenSinceDate"] = pd.to_datetime(
+            self.store_data[["YEAR", "MONTH"]].assign(DAY=1))
 
         # Drops columns that are not needed.
         self.store_data.drop(["YEAR", "MONTH"], axis=1, inplace=True)
@@ -165,8 +171,12 @@ class DataProcessor:
         self.store_data["PromoInterval"].fillna("0", inplace=True)
 
         # Merge train and store data.
-        self.processed_train_data = self.train_data.merge(self.store_data, on="Store", how="inner")
-        self.processed_test_data = self.test_data.merge(self.store_data, on="Store", how="inner")
+        self.processed_train_data = self.train_data.merge(self.store_data,
+                                                          on="Store",
+                                                          how="inner")
+        self.processed_test_data = self.test_data.merge(self.store_data,
+                                                        on="Store",
+                                                        how="inner")
 
         promo_interval_dict = {
             "0": 0,
@@ -175,12 +185,7 @@ class DataProcessor:
             "Mar,Jun,Sept,Dec": 3
         }
 
-        store_type_dict = {
-            "a": 1,
-            "b": 2,
-            "c": 3,
-            "d": 4
-        }
+        store_type_dict = {"a": 1, "b": 2, "c": 3, "d": 4}
 
         # Places processed data variables and iterates over it to get a shallow copy
         df_list = [self.processed_train_data, self.processed_test_data]
@@ -194,30 +199,36 @@ class DataProcessor:
             processed_data = processed_data.drop("Open", axis=1)
 
             # Converts CompetitionOpenSinceDate column to months.
-            processed_data["CompetitionOpenSinceMonth"] = (pd.to_datetime(processed_data["Date"]) - processed_data[
-                "CompetitionOpenSinceDate"]).dt.days // 30
+            processed_data["CompetitionOpenSinceMonth"] = (
+                pd.to_datetime(processed_data["Date"]) -
+                processed_data["CompetitionOpenSinceDate"]).dt.days // 30
 
             # Converts Date column to datetime for easier manipulation.
-            processed_data["Year"] = pd.DatetimeIndex(processed_data["Date"]).year
-            processed_data["Season"] = pd.DatetimeIndex(processed_data["Date"]).month % 12 // 3 + 1
-            processed_data["Month"] = pd.DatetimeIndex(processed_data["Date"]).month
-            processed_data["WeekOfYear"] = pd.DatetimeIndex(processed_data["Date"]).isocalendar().week.values
-            processed_data["Day"] = pd.DatetimeIndex(processed_data["Date"]).day
+            processed_data["Year"] = pd.DatetimeIndex(
+                processed_data["Date"]).year
+            processed_data["Season"] = pd.DatetimeIndex(
+                processed_data["Date"]).month % 12 // 3 + 1
+            processed_data["Month"] = pd.DatetimeIndex(
+                processed_data["Date"]).month
+            processed_data["WeekOfYear"] = pd.DatetimeIndex(
+                processed_data["Date"]).isocalendar().week.values
+            processed_data["Day"] = pd.DatetimeIndex(
+                processed_data["Date"]).day
 
             # Creates new column for whether the store is open on a public holiday.
             processed_data["IsOpenOnPublicHoliday"] = np.where(
-                processed_data["StateHoliday"].isin(["a", "b", "c"]),
-                1,
-                0
-            )
+                processed_data["StateHoliday"].isin(["a", "b", "c"]), 1, 0)
 
             # Removes StateHoliday column because it is not needed anymore.
             processed_data = processed_data.drop("StateHoliday", axis=1)
 
             # Applies mapping to PromoInterval, StoreType, and Assortment columns and converts them to integers.
-            processed_data["PromoInterval"] = processed_data["PromoInterval"].map(promo_interval_dict).astype(int)
-            processed_data["StoreType"] = processed_data["StoreType"].map(store_type_dict).astype(int)
-            processed_data["Assortment"] = processed_data["Assortment"].map(store_type_dict).astype(int)
+            processed_data["PromoInterval"] = processed_data[
+                "PromoInterval"].map(promo_interval_dict).astype(int)
+            processed_data["StoreType"] = processed_data["StoreType"].map(
+                store_type_dict).astype(int)
+            processed_data["Assortment"] = processed_data["Assortment"].map(
+                store_type_dict).astype(int)
 
             # Resets index.
             processed_data = processed_data.reset_index(drop=True)
@@ -226,7 +237,8 @@ class DataProcessor:
             processed_data = processed_data.drop("Date", axis=1)
 
             # Removes CompetitionOpenSinceDate column because it is not needed anymore.
-            processed_data = processed_data.drop("CompetitionOpenSinceDate", axis=1)
+            processed_data = processed_data.drop("CompetitionOpenSinceDate",
+                                                 axis=1)
 
             try:
                 # Removes Customers column because it is not provided on test data.
@@ -239,9 +251,10 @@ class DataProcessor:
         self.processed_train_data, self.processed_test_data = df_list
 
         # Checks if there are any null values in the processed data.
-        assert self.processed_train_data.isnull().sum().sum() == 0, "Null values still exist in processed train data."
-        assert self.processed_test_data.isnull().sum().sum() == 0, "Null values still exist in processed test data."
-
+        assert self.processed_train_data.isnull().sum().sum(
+        ) == 0, "Null values still exist in processed train data."
+        assert self.processed_test_data.isnull().sum().sum(
+        ) == 0, "Null values still exist in processed test data."
         """
         gba_categoricals = ["Store", "DayOfWeek"]
         gba_aggregates = ["mean"]
@@ -277,7 +290,8 @@ class DataProcessor:
             print("=" * term_size.columns)
 
             if report_output_path is None:
-                report_output_path = Path("../../reports/processed_data_report.html")
+                report_output_path = Path(
+                    "../../reports/processed_data_report.html")
                 report_output_path.parent.mkdir(parents=True, exist_ok=True)
 
             profile_report_title = "Dataset Profiling Report"
@@ -285,15 +299,15 @@ class DataProcessor:
             profile = ProfileReport(
                 self.processed_train_data,
                 title=profile_report_title,
-                html={
-                    "style": {
-                        "full_width": True
-                    }
-                },
+                html={"style": {
+                    "full_width": True
+                }},
             )
             profile.to_file(output_file=str(report_output_path))
 
-            self.logger.info(u"\u2713 {} successfully created and saved to {}".format(profile_report_title, report_output_path))
+            self.logger.info(
+                u"\u2713 {} successfully created and saved to {}".format(
+                    profile_report_title, report_output_path))
 
     def write_data(self,
                    processed_train_data_path: str = None,
@@ -312,11 +326,15 @@ class DataProcessor:
 
         self.logger.info("Writing data.")
 
-        self.processed_train_data.to_csv(processed_train_data_path, index=False)
+        self.processed_train_data.to_csv(processed_train_data_path,
+                                         index=False)
         self.processed_test_data.to_csv(processed_test_data_path, index=False)
         self.logger.info(u"\u2713 Data successfully written.")
 
-    def path_checker(self, data_path: Union[str, Path], mkdir: bool = False, extension: str = None,
+    def path_checker(self,
+                     data_path: Union[str, Path],
+                     mkdir: bool = False,
+                     extension: str = None,
                      is_file: bool = False) -> None:
         """Check if data path exists and has the correct extension."""
 
@@ -338,15 +356,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Adds input arguments to the parser.
-    parser.add_argument("--input_train", default="./data/raw/train.csv", help="Path to raw train data.", type=str)
-    parser.add_argument("--input_test", default="./data/raw/test.csv", help="Path to raw test data.", type=str)
-    parser.add_argument("--input_store", default="./data/raw/store.csv", help="Path to raw store data.", type=str)
+    parser.add_argument("--input_train",
+                        default="./data/raw/train.csv",
+                        help="Path to raw train data.",
+                        type=str)
+    parser.add_argument("--input_test",
+                        default="./data/raw/test.csv",
+                        help="Path to raw test data.",
+                        type=str)
+    parser.add_argument("--input_store",
+                        default="./data/raw/store.csv",
+                        help="Path to raw store data.",
+                        type=str)
 
     # Adds output arguments to the parser.
-    parser.add_argument("--output_train", default="./data/processed/train.csv",
-                        help="Path to save processed train data.", type=str)
-    parser.add_argument("--output_test", default="./data/processed/test.csv",
-                        help="Path to save processed test data.", type=str)
+    parser.add_argument("--output_train",
+                        default="./data/processed/train.csv",
+                        help="Path to save processed train data.",
+                        type=str)
+    parser.add_argument("--output_test",
+                        default="./data/processed/test.csv",
+                        help="Path to save processed test data.",
+                        type=str)
 
     # Parses arguments.
     args = parser.parse_args()
@@ -354,14 +385,11 @@ if __name__ == "__main__":
     # Creates data processor object.
     data_processor = DataProcessor()
     # Reads data based on the input arguments.
-    data_processor.read_data(
-        args.input_train,
-        args.input_test,
-        args.input_store,
-        verbose=True)
+    data_processor.read_data(args.input_train,
+                             args.input_test,
+                             args.input_store,
+                             verbose=True)
     # Processes data.
     data_processor.process_data(verbose=False)
     # Writes data based on the output arguments.
-    data_processor.write_data(
-        args.output_train,
-        args.output_test)
+    data_processor.write_data(args.output_train, args.output_test)
