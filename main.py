@@ -9,6 +9,7 @@ logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s",
 logging.info("LIBRARIES BEING LOADED...")
 
 from src.features.build_features import FeatureConstructor
+from src.utils import scheduler
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
 
@@ -24,29 +25,34 @@ tf.config.run_functions_eagerly(True)
 from tensorflow.keras.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
-    TensorBoard
+    TensorBoard,
+    LearningRateScheduler
 )
 from tensorflow.keras.layers import (
     LSTM,
     Dense,
     Input,
-    # Conv1D,
-    # MaxPooling1D
+    Conv1D,
+    MaxPooling1D,
+    Dropout,
+    Flatten
 )
 from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.optimizers import RMSprop, Adam, SGD
+from tensorflow.keras.metrics import RootMeanSquaredError
 
 logging.info("LIBRARIES IS LOADED SUCCESSFULLY \u2713")
 
 # %% CONSTANTS
 TARGET = "Sales"
-EPOCHS = 500
-BATCH_SIZE = 1024
+EPOCHS = 1_000
+BATCH_SIZE = 2048
 LEARNING_RATE = 1E-3
 
 CAT_FEATURES = [
     "Store",
     "Promo",
+    "Open",
     "SchoolHoliday",
     "StoreType",
     "Assortment",
@@ -136,7 +142,7 @@ while True:
     if not model_no.isdigit():
         print("Please enter a valid model number.")
     elif model_no in [
-        i.split("_")[1][0] for i in saved_models if i.endswith(".hdf5")
+        i.split("_")[1].split(".")[0] for i in saved_models if i.endswith(".hdf5")
     ]:
         print("Model number already exists. Please try again.")
     else:
@@ -147,24 +153,31 @@ while True:
 inputs = Input(shape=(X_train.shape[1], X_train.shape[2]))
 
 # # Defines the first convolutional layer
-# x = Conv1D(256, 3, padding="same", activation="relu")(inputs)
-# x = MaxPooling1D(2, padding="same")(x)
+x = Conv1D(128, 3, padding="same", activation="relu")(inputs)
+x = MaxPooling1D(2, padding="same")(x)
 
 # # Defines the second convolutional layer
 # x = Conv1D(128, 3, padding="same", activation="relu")(x)
 # x = MaxPooling1D(2, padding="same")(x)
 
 # Defines the first LSTM layer
-x = LSTM(128, return_sequences=True)(inputs)
+x = LSTM(128, return_sequences=True)(x)
 
 # Defines the second LSTM layer
-x = LSTM(64, return_sequences=True)(x)
+x = LSTM(64, return_sequences=False)(x)
 
 # Defines the third LSTM layer
-x = LSTM(32, return_sequences=False)(x)
+# x = LSTM(32, return_sequences=False)(x)
 
-# Defines the first dense layer
-x = Dense(1024, activation="relu", kernel_initializer="uniform")(x)
+# Defines the flatten layer
+# x = Flatten()(x)
+
+# # Defines the first dense layer
+# x = Dense(512, activation="relu", kernel_initializer="uniform")(x)
+# x = Dropout(0.5)(x)
+#
+# # Defines the second dense layer
+# x = Dense(1024, activation="relu", kernel_initializer="uniform")(x)
 
 # Defines the output layer
 predictions = Dense(1)(x)
@@ -173,7 +186,7 @@ predictions = Dense(1)(x)
 model = Model(inputs=inputs, outputs=predictions, name=f"model_{model_no}")
 
 # Defines the early stopping callback
-early_stopping_callback = EarlyStopping(monitor="val_loss", patience=5)
+early_stopping_callback = EarlyStopping(monitor="val_loss", patience=100)
 
 # Defines the model checkpoint callback
 checkpoint_filepath = f"./models/model_{model_no}.hdf5"
@@ -186,20 +199,34 @@ model_checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
 # Defines the tensorboard callback
 tensorboard_callback = TensorBoard(log_dir="./logs")
 
+learning_rate_scheduler = LearningRateScheduler(scheduler)
+
 # Concatenates callbacks
 callbacks = [
-    early_stopping_callback, model_checkpoint_callback, tensorboard_callback
+    early_stopping_callback,
+    model_checkpoint_callback,
+    tensorboard_callback,
+    learning_rate_scheduler
 ]
 
 # Defines the optimizer
 rmsprop = RMSprop(learning_rate=LEARNING_RATE)
-# adam = Adam(learning_rate=LEARNING_RATE)
-# sgd = SGD(learning_rate=LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True)
+adam = Adam(learning_rate=LEARNING_RATE)
+sgd = SGD(learning_rate=LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True)
+
+# Creates Root Mean Squared Error object to use as a metric
+root_mean_squared_error = RootMeanSquaredError(
+    name="root_mean_squared_error", dtype=None
+)
 
 # Compiles the model
 model.compile(optimizer=rmsprop,
               loss="mean_squared_error",
-              metrics=["mean_absolute_error"])
+              metrics=[
+                  "mean_absolute_error",
+                  root_mean_squared_error
+                  ]
+)
 
 # Builds the model in order to see the summary
 model.build(X_train)
@@ -242,6 +269,7 @@ model_details = {
     "LEARNING_RATE": LEARNING_RATE,
     "TEST_LOSS": f"{test_results[0]:.5f}",
     "TEST_MAE": f"{test_results[1]:.5f}",
+    "TEST_RMSE": f"{test_results[2]:.5f}",
     "OPTIMIZER": str(model.optimizer.get_config()),
     "MODEL_ARCHITECTURE": json.loads(model.to_json())
 }
