@@ -192,11 +192,13 @@ class DataProcessor:
 
         for i, df in enumerate(df_list):
             processed_data = df.copy()
-            # Removes rows if store is closed on a given day because there is no sales.
-            processed_data = processed_data[processed_data["Open"] == 1]
+            # # Removes rows if store is closed on a given day because there is no sales for only training data.
+            # if i == 0:
+            #    processed_data = processed_data[processed_data["Open"] == 1]
             # Removes whole Open column because it is not needed anymore.
             # Reminder: inplace cannot be used because processed_data is a copy of self.processed_*_data.
-            processed_data = processed_data.drop("Open", axis=1)
+            # processed_data = processed_data.drop("Open", axis=1)
+            processed_data["Open"] = processed_data["Open"].fillna(1)
 
             # Converts CompetitionOpenSinceDate column to months.
             processed_data["CompetitionOpenSinceMonth"] = (
