@@ -22,7 +22,6 @@ class FeatureConstructor(object):
         self.embedding_sizes = None
 
         assert self.data is not None, "Data is not provided"
-        assert self.target is not None, "Target is not provided"
         assert self.cat_features is not None or self.cont_features is not None, "At least one of the features should " \
                                                                                 "be specified "
 
@@ -53,7 +52,8 @@ class FeatureConstructor(object):
         #     code_fillna_value = len(code_dict)
         #     df[col] = df[col].map(code_dict).fillna(code_fillna_value).astype(np.int64)
 
-        df[self.target] = df[self.target].astype(np.float32)
+        if self.target is not None:
+            df[self.target] = df[self.target].astype(np.float32)
 
         # Checks the number of categorical feature sizes
         cat_sizes = [len(df[col].unique()) for col in self.cat_features]
